@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retail Centre Performance Report</title>
+<meta name="description" content="Monthly performance report and month-end data audit for three shopping centres: sales vs budget, traffic, occupancy and lease expiries.">
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+  .controls {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 0;
+  }
+  .controls .wrap { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+  .ctl { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--ink-2); }
+  select {
+    font: inherit; font-size: .92rem; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .seg button {
+    font: inherit; font-size: .88rem; border: 0; background: transparent; color: var(--ink-2);
+    padding: 6px 12px; cursor: pointer;
+  }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .modehint { font-size: .82rem; color: var(--ink-2); }
+
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  @media (max-width: 960px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { padding: 14px 16px; }
+  .kpi .label { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); font-weight: 600; }
+  .kpi .val { font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em; margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .kpi .sub { font-size: .84rem; color: var(--ink-2); }
+  .pos { color: var(--good); }
+  .neg { color: var(--bad); }
+  .chip { display: inline-block; font-size: .72rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; vertical-align: middle; }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.bad { background: var(--bad-soft); color: var(--bad); }
+  .chip.good { background: var(--good-soft); color: var(--good); }
+  .chip.info { background: var(--accent-soft); color: var(--accent); }
+
+  .chartbox { position: relative; height: 280px; }
+  .card h3 { margin-bottom: 2px; }
+  .card .cap { font-size: .85rem; color: var(--ink-2); margin-bottom: 12px; }
+
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+  td.r, th.r { text-align: right; }
+  tr.hl td { background: var(--warn-soft); }
+  .btn {
+    font: inherit; font-size: .88rem; border: 1px solid var(--line); background: var(--surface);
+    color: var(--ink); border-radius: 8px; padding: 6px 12px; cursor: pointer; margin-top: 10px;
+  }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; }
+  .steps li { counter-increment: s; position: relative; padding-left: 40px; margin-bottom: 18px; }
+  .steps li::before {
+    content: counter(s); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent); font-weight: 700; display: grid; place-items: center; font-size: .85rem;
+  }
+  details.code summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: .92rem; margin-bottom: 8px; }
+  .dl a { display: inline-block; margin: 0 14px 8px 0; }
+</style>
+</head>
+<body>
+
+<nav class="topnav"><div class="wrap">
+  <a href="../">← Portfolio</a>
+  <div class="links"><a href="#findings">Findings</a><a href="#audit">Data audit</a><a href="#method">How I built it</a></div>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">Retail real estate · Monthly reporting</div>
+  <h1>Retail Centre Performance Report</h1>
+  <p class="lede">A month-end report for a portfolio of three shopping centres: tenant sales against budget, foot traffic, occupancy and upcoming lease expiries. Before reporting, I ran a set of data checks that changed the story for one of the centres.</p>
+  <span class="note">Simulated data modelled on real retail reporting · Jan 2025 – Sep 2026 · 114 units, 2,260 tenant sales reports, 1,914 days of traffic</span>
+  <div class="tags"><span class="tag">SQL</span><span class="tag">Excel</span><span class="tag">Power BI / DAX</span><span class="tag">Data validation</span><span class="tag">Variance analysis</span></div>
+</div></header>
+
+<section id="findings"><div class="wrap">
+  <h2>Key findings at the September 2026 close</h2>
+  <div class="grid g3">
+    <div class="card finding">
+      <div class="num">+17.5% → <span class="neg">−2.4%</span></div>
+      <h3>Lakeshore's August "beat" was a data error</h3>
+      <p>One tenant reported $2.05M against a normal ~$185K: a misplaced decimal. Corrected, the centre was slightly <em>below</em> budget. Caught before it reached the owner report.</p>
+    </div>
+    <div class="card finding">
+      <div class="num neg">−15% vs budget</div>
+      <h3>Northgate is down because its anchor closed</h3>
+      <p>BigBox Mart (88,347 sq ft) left on 31 March. Occupancy fell from 97.9% to 72.0%, traffic is down 9% year over year, and sales have run about 15% below budget every month since.</p>
+    </div>
+    <div class="card finding">
+      <div class="num">7 issues</div>
+      <h3>Caught by automated month-end checks</h3>
+      <p>A duplicate submission, a decimal slip, 3 missing reports, a 10-day counter outage and 5 days of double-counted traffic. Each is listed below with its impact and fix.</p>
+    </div>
+  </div>
+</div></section>
+
+<div class="controls"><div class="wrap">
+  <label class="ctl">Centre <select id="selProp"></select></label>
+  <label class="ctl">Month <select id="selMonth"></select></label>
+  <div class="ctl">Data
+    <div class="seg" role="group" aria-label="Data version">
+      <button id="btnRaw" type="button">As reported</button>
+      <button id="btnFix" type="button" class="on">Corrected</button>
+    </div>
+  </div>
+  <span class="modehint" id="modeHint"></span>
+</div></div>
+
+<section><div class="wrap">
+  <div class="kpis" id="kpis"></div>
+</div></section>
+
+<section style="padding-top:0"><div class="wrap grid g2">
+  <div class="card">
+    <h3>Sales vs budget</h3>
+    <div class="cap" id="capTrend">Monthly tenant sales against budget.</div>
+    <div class="chartbox"><canvas id="chTrend"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Variance to budget by centre</h3>
+    <div class="cap" id="capVar"></div>
+    <div class="chartbox"><canvas id="chVar"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Foot traffic</h3>
+    <div class="cap">Monthly door-counter visitors, this year against the same month last year.</div>
+    <div class="chartbox"><canvas id="chTraffic"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Occupied vs leased</h3>
+    <div class="cap">Share of leasable area. Leased counts signed leases; occupied counts stores that are open.</div>
+    <div class="chartbox"><canvas id="chOcc"></canvas></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="card">
+    <h3 id="tenantTitle">Tenant detail</h3>
+    <div class="cap">Flagged rows first, then the biggest moves against last month. Sales PSF is the month's sales × 12 ÷ store area.</div>
+    <div class="tablewrap"><table id="tenantTable"></table></div>
+    <button class="btn" id="btnMore" type="button"></button>
+  </div>
+</div></section>
+
+<section id="audit"><div class="wrap">
+  <h2>Month-end data audit</h2>
+  <p class="muted" style="max-width:760px">Tenants submit their own sales, and door counters fail. Before any number goes to an owner, I run the same checks every month. These are the issues they caught this period and what each did to the totals.</p>
+  <div class="card">
+    <div class="tablewrap"><table id="issueTable"></table></div>
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card">
+      <h3>The checks</h3>
+      <ul class="small" style="padding-left:18px;margin:8px 0 0">
+        <li><strong>Duplicates:</strong> more than one report for the same unit, tenant and month.</li>
+        <li><strong>Spikes:</strong> a month above 5× the tenant's own 3-month average.</li>
+        <li><strong>Missing reports:</strong> an open lease with no sales for the month.</li>
+        <li><strong>Counter outages:</strong> zero visitors on a trading day.</li>
+        <li><strong>Counter errors:</strong> traffic above 1.6× the median for that weekday over the surrounding 8 weeks.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>What changed the story</h3>
+      <p class="small" style="margin:8px 0 0" id="auditSummary"></p>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="card">
+    <h3 id="expTitle">Lease expiries in the next 12 months</h3>
+    <div class="cap">Occupancy cost is annual base rent ÷ trailing 12-month sales. Above about 12–15%, a tenant may struggle to renew at the same rent.</div>
+    <div class="tablewrap"><table id="expTable"></table></div>
+  </div>
+</div></section>
+
+<section id="method"><div class="wrap">
+  <h2>How I built it</h2>
+  <div class="grid g2">
+    <div>
+      <ol class="steps">
+        <li><strong>Loaded the data into PostgreSQL</strong> — seven tables: properties, units, tenants, leases, monthly tenant sales, budget and daily traffic.</li>
+        <li><strong>Ran the validation checks in SQL</strong> before building anything, and logged each issue with its impact.</li>
+        <li><strong>Built the actual vs budget report in Excel</strong> on structured Tables, with one month input cell driving every formula.</li>
+        <li><strong>Modelled it in Power BI</strong> as a star schema with a date table, and wrote the variance, YoY and occupancy measures in DAX.</li>
+        <li><strong>Published this page</strong> with the corrected figures, plus a switch to show the numbers as originally reported.</li>
+      </ol>
+    </div>
+    <div>
+      <details class="code" open><summary>SQL: catching the decimal slip</summary>
+<pre><code>WITH s AS (
+  SELECT unit_id, tenant_id, sales_month, reported_sales,
+         AVG(reported_sales) OVER (
+           PARTITION BY unit_id, tenant_id
+           ORDER BY sales_month
+           ROWS BETWEEN 3 PRECEDING AND 1 PRECEDING
+         ) AS trail_3m
+  FROM tenant_sales
+)
+SELECT *, reported_sales / NULLIF(trail_3m, 0) AS ratio
+FROM s
+WHERE reported_sales &gt; 5 * trail_3m;</code></pre></details>
+      <details class="code"><summary>SQL: open leases with no sales report</summary>
+<pre><code>SELECT l.unit_id, l.tenant_id
+FROM leases l
+LEFT JOIN tenant_sales s
+  ON  s.unit_id = l.unit_id
+  AND s.tenant_id = l.tenant_id
+  AND s.sales_month = DATE '2026-09-01'
+WHERE l.open_date &lt;= DATE '2026-09-30'
+  AND l.lease_end  &gt;= DATE '2026-09-01'
+  AND s.unit_id IS NULL;</code></pre></details>
+      <details class="code"><summary>Excel: actual vs budget for the selected month</summary>
+<pre><code>A4  =UNIQUE(Budget[property_id])
+B4  =SUMIFS(Sales[reported_sales], Sales[property_id], A4#, Sales[sales_month], $B$1)
+C4  =SUMIFS(Budget[budget_sales], Budget[property_id], A4#, Budget[sales_month], $B$1)
+D4  =B4# - C4#
+E4  =IFERROR(D4# / C4#, "")</code></pre></details>
+      <details class="code"><summary>DAX: variance and occupancy measures</summary>
+<pre><code>Actual Sales = SUM ( tenant_sales[reported_sales] )
+Budget Sales = SUM ( budget[budget_sales] )
+Variance %   = DIVIDE ( [Actual Sales] - [Budget Sales], [Budget Sales] )
+
+Occupancy % =
+VAR d = MAX ( 'Date'[Date] )
+VAR occupied =
+    SUMX (
+        FILTER ( leases, leases[open_date] &lt;= d &amp;&amp; leases[lease_end] &gt;= d ),
+        RELATED ( units[gla_sqft] )
+    )
+RETURN DIVIDE ( occupied, SUM ( units[gla_sqft] ) )</code></pre></details>
+    </div>
+  </div>
+  <div class="card dl" style="margin-top:12px">
+    <h3>Data and code</h3>
+    <a href="data/tenant_sales.csv">tenant_sales.csv</a><a href="data/budget.csv">budget.csv</a><a href="data/traffic_daily.csv">traffic_daily.csv</a><a href="data/leases.csv">leases.csv</a><a href="data/units.csv">units.csv</a><a href="data/tenants.csv">tenants.csv</a><a href="data/properties.csv">properties.csv</a><a href="../scripts/build_mall_data.py">build_mall_data.py</a>
+  </div>
+</div></section>
+
+<footer class="footer"><div class="wrap">
+  All figures are simulated for demonstration. Tenant and centre names are fictional.
+</div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(async function () {
+  const D = await fetch("data.json").then(r => r.json());
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const C = {
+    ink: css("--ink"), ink2: css("--ink-2"), line: css("--line"), accent: css("--accent"),
+    good: css("--good"), bad: css("--bad"), muted: css("--muted-line"), warn: css("--warn"),
+  };
+  Chart.defaults.color = C.ink2;
+  Chart.defaults.borderColor = C.line;
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+
+  const props = D.properties;
+  const pName = Object.fromEntries(props.map(p => [p.id, p.name]));
+  const M = D.months;
+  const mLabel = m => new Date(m + "-01T00:00:00").toLocaleString("en-CA", { month: "short", year: "numeric" });
+  const mShort = m => new Date(m + "-01T00:00:00").toLocaleString("en-CA", { month: "short" }) + " " + m.slice(2, 4);
+
+  const S = { prop: "ALL", m: M.length - 1, mode: "fixed" };
+
+  // ---------- formatting
+  const money = v => v == null ? "—" : (Math.abs(v) >= 1e6 ? "$" + (v / 1e6).toFixed(2) + "M" : "$" + Math.round(v / 1e3).toLocaleString() + "K");
+  const moneyFull = v => v == null ? "—" : (v < 0 ? "−$" : "$") + Math.abs(Math.round(v)).toLocaleString();
+  const pct = (v, d = 1) => v == null || !isFinite(v) ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v * 100).toFixed(d) + "%";
+  const pctPlain = (v, d = 1) => v == null || !isFinite(v) ? "—" : (v * 100).toFixed(d) + "%";
+  const cls = v => v > 0 ? "pos" : v < 0 ? "neg" : "";
+
+  // ---------- data access
+  const ids = () => S.prop === "ALL" ? props.map(p => p.id) : [S.prop];
+  const series = (key) => {
+    const out = M.map(() => 0);
+    ids().forEach(p => D.monthly[p][key].forEach((v, i) => out[i] += v));
+    return out;
+  };
+  const gla = () => ids().reduce((a, p) => a + props.find(x => x.id === p).gla, 0);
+  const actualKey = () => S.mode === "fixed" ? "actual_fixed" : "actual_raw";
+  const trafficKey = () => S.mode === "fixed" ? "traffic_fixed" : "traffic_raw";
+
+  // ---------- controls
+  const selProp = document.getElementById("selProp");
+  selProp.innerHTML = `<option value="ALL">All centres</option>` + props.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+  const selMonth = document.getElementById("selMonth");
+  selMonth.innerHTML = M.map((m, i) => `<option value="${i}">${mLabel(m)}</option>`).reverse().join("");
+  selMonth.value = S.m;
+  selProp.onchange = () => { S.prop = selProp.value; render(); };
+  selMonth.onchange = () => { S.m = +selMonth.value; render(); };
+  const btnRaw = document.getElementById("btnRaw"), btnFix = document.getElementById("btnFix");
+  const setMode = m => { S.mode = m; btnRaw.classList.toggle("on", m === "raw"); btnFix.classList.toggle("on", m === "fixed"); render(); };
+  btnRaw.onclick = () => setMode("raw");
+  btnFix.onclick = () => setMode("fixed");
+
+  // ---------- charts
+  const pointR = (n, sel) => Array.from({ length: n }, (_, i) => i === sel ? 5 : 2);
+  const baseOpts = (yFmt) => ({
+    responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { position: "bottom", labels: { boxWidth: 12, boxHeight: 2, usePointStyle: false } },
+      tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${yFmt(c.parsed.y)}` } },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 10 } },
+      y: { ticks: { callback: v => yFmt(v) }, grid: { color: C.line } },
+    },
+  });
+
+  const chTrend = new Chart(document.getElementById("chTrend"), {
+    type: "line",
+    data: { labels: M.map(mShort), datasets: [] },
+    options: baseOpts(money),
+  });
+  const chVar = new Chart(document.getElementById("chVar"), {
+    type: "bar",
+    data: { labels: props.map(p => p.name), datasets: [] },
+    options: (() => {
+      const o = baseOpts(v => pct(v));
+      o.plugins.legend.display = false;
+      o.interaction = { mode: "nearest", intersect: true };
+      o.onClick = (e, el) => { if (el.length) { S.prop = props[el[0].index].id; selProp.value = S.prop; render(); } };
+      return o;
+    })(),
+  });
+  const chTraffic = new Chart(document.getElementById("chTraffic"), {
+    type: "bar",
+    data: { labels: [], datasets: [] },
+    options: baseOpts(v => v >= 1e6 ? (v / 1e6).toFixed(2) + "M" : Math.round(v / 1e3) + "K"),
+  });
+  const chOcc = new Chart(document.getElementById("chOcc"), {
+    type: "line",
+    data: { labels: M.map(mShort), datasets: [] },
+    options: (() => { const o = baseOpts(v => pctPlain(v, 0)); o.scales.y.suggestedMin = 0.6; o.scales.y.suggestedMax = 1; o.plugins.tooltip.callbacks.label = c => ` ${c.dataset.label}: ${pctPlain(c.parsed.y)}`; return o; })(),
+  });
+
+  // ---------- tenant rows
+  const salesByKey = {};
+  D.sales.forEach(r => { salesByKey[r[0] + "|" + r[1] + "|" + r[2]] = r; });
+  let showAll = false;
+  document.getElementById("btnMore").onclick = () => { showAll = !showAll; renderTenants(); };
+
+  function renderTenants() {
+    const want = new Set(ids());
+    const val = r => S.mode === "fixed" ? r[4] : r[3];
+    const rows = D.sales.filter(r => r[2] === S.m && want.has(D.units[r[0]][0])).map(r => {
+      const prev = salesByKey[r[0] + "|" + r[1] + "|" + (S.m - 1)];
+      const v = val(r), pv = prev ? val(prev) : null;
+      return { r, v, chg: v != null && pv ? v / pv - 1 : null };
+    });
+    rows.sort((a, b) => (b.r[5] ? 1 : 0) - (a.r[5] ? 1 : 0) || Math.abs(b.chg ?? 0) - Math.abs(a.chg ?? 0));
+    const shown = showAll ? rows : rows.slice(0, 12);
+    const flagChip = (f) => {
+      if (!f) return "";
+      if (S.mode === "raw") return `<span class="chip bad">${f}</span>`;
+      const t = { "decimal slip": "fixed ÷10", "duplicate": "duplicate removed", "missing": "estimated" }[f] || f;
+      return `<span class="chip warn">${t}</span>`;
+    };
+    document.getElementById("tenantTitle").textContent =
+      `Tenant detail · ${S.prop === "ALL" ? "All centres" : pName[S.prop]} · ${mLabel(M[S.m])}`;
+    document.getElementById("tenantTable").innerHTML =
+      `<thead><tr><th>Tenant</th><th>Unit</th><th>Category</th><th class="r">Sales</th><th class="r">vs last month</th><th class="r">Sales PSF</th><th>Flag</th></tr></thead><tbody>` +
+      shown.map(({ r, v, chg }) => {
+        const [prop, g] = D.units[r[0]];
+        const [name, cat] = D.tenants[r[1]];
+        return `<tr class="${r[5] ? "hl" : ""}"><td>${name}</td><td>${r[0]}</td><td>${cat}</td>` +
+          `<td class="r">${v == null ? '<span class="muted">not reported</span>' : moneyFull(v)}</td>` +
+          `<td class="r ${cls(chg)}">${pct(chg)}</td>` +
+          `<td class="r">${v == null ? "—" : "$" + Math.round(v * 12 / g).toLocaleString()}</td>` +
+          `<td>${flagChip(r[5])}</td></tr>`;
+      }).join("") + "</tbody>";
+    const b = document.getElementById("btnMore");
+    b.style.display = rows.length > 12 ? "" : "none";
+    b.textContent = showAll ? "Show fewer" : `Show all ${rows.length} tenants`;
+  }
+
+  // ---------- static tables
+  const issueRows = D.issues.map(i => {
+    const imp = i.unit === "visitors"
+      ? `${i.impact > 0 ? "+" : "−"}${Math.abs(i.impact).toLocaleString()} visitors`
+      : moneyFull(i.impact);
+    return { i, imp };
+  });
+  function renderIssues() {
+    const want = new Set(ids());
+    document.getElementById("issueTable").innerHTML =
+      `<thead><tr><th>Check</th><th>Centre</th><th>Where</th><th>What we found</th><th class="r">Impact of fix</th><th>Fix</th></tr></thead><tbody>` +
+      issueRows.map(({ i, imp }) =>
+        `<tr style="${want.has(i.property_id) ? "" : "opacity:.45"}"><td><strong>${i.check}</strong></td><td>${pName[i.property_id]}</td><td style="white-space:nowrap">${i.where}</td><td>${i.detail}</td><td class="r" style="white-space:nowrap">${imp}</td><td>${i.fix}</td></tr>`
+      ).join("") + "</tbody>";
+  }
+  function renderExpiries() {
+    const want = new Set(ids());
+    const rows = D.expiries.filter(e => want.has(e.property_id));
+    const area = rows.reduce((a, e) => a + e.gla, 0), rent = rows.reduce((a, e) => a + e.annual_rent, 0);
+    document.getElementById("expTitle").textContent =
+      `Lease expiries in the next 12 months · ${rows.length} leases · ${area.toLocaleString()} sq ft · ${money(rent)} annual rent`;
+    document.getElementById("expTable").innerHTML =
+      `<thead><tr><th>Tenant</th><th>Centre</th><th>Unit</th><th>Category</th><th>Lease ends</th><th class="r">Area (sq ft)</th><th class="r">Annual rent</th><th class="r">Sales PSF (12m)</th><th class="r">Occupancy cost</th></tr></thead><tbody>` +
+      rows.map(e => {
+        const risk = e.occ_cost != null && e.occ_cost > 0.12;
+        return `<tr><td>${e.tenant}</td><td>${pName[e.property_id]}</td><td>${e.unit_id}</td><td>${e.category}</td><td style="white-space:nowrap">${e.lease_end}</td>` +
+          `<td class="r">${e.gla.toLocaleString()}</td><td class="r">${moneyFull(e.annual_rent)}</td>` +
+          `<td class="r">${e.sales_psf == null ? "—" : "$" + e.sales_psf.toLocaleString()}</td>` +
+          `<td class="r">${e.occ_cost == null ? "—" : pctPlain(e.occ_cost)} ${risk ? '<span class="chip bad">high</span>' : ""}</td></tr>`;
+      }).join("") + "</tbody>";
+  }
+
+  // ---------- main render
+  function render() {
+    const i = S.m, ly = i - 12;
+    const act = series(actualKey()), bud = series("budget"), raw = series("actual_raw"), fix = series("actual_fixed");
+    const trf = series(trafficKey()), occ = series("occupied_sqft"), lea = series("leased_sqft"), G = gla();
+    const varPct = (act[i] - bud[i]) / bud[i];
+    const corrected = Math.abs(raw[i] - fix[i]) > 1 || series("traffic_raw")[i] !== series("traffic_fixed")[i];
+
+    document.getElementById("modeHint").innerHTML = S.mode === "raw"
+      ? "Showing figures exactly as tenants and counters submitted them."
+      : (corrected ? `<span class="chip warn">corrected</span> This month includes fixes from the data audit.` : "No corrections needed for this selection.");
+
+    const kpi = (label, val, sub) => `<div class="card kpi"><div class="label">${label}</div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
+    const actLY = ly >= 0 ? act[ly] : null, trfLY = ly >= 0 ? trf[ly] : null;
+    document.getElementById("kpis").innerHTML = [
+      kpi("Tenant sales", money(act[i]), actLY ? `<span class="${cls(act[i] / actLY - 1)}">${pct(act[i] / actLY - 1)}</span> vs last year` : "&nbsp;"),
+      kpi("Budget", money(bud[i]), mLabel(M[i])),
+      kpi("Variance", `<span class="${cls(varPct)}">${pct(varPct)}</span>`, `${moneyFull(act[i] - bud[i])} · ${varPct >= 0 ? "favourable" : "unfavourable"}`),
+      kpi("Foot traffic", (trf[i] / 1e3).toFixed(0) + "K", trfLY ? `<span class="${cls(trf[i] / trfLY - 1)}">${pct(trf[i] / trfLY - 1)}</span> vs last year` : "&nbsp;"),
+      kpi("Occupancy", pctPlain(occ[i] / G), `${pctPlain(lea[i] / G)} leased`),
+    ].join("");
+
+    // trend
+    const ds = [
+      { label: S.mode === "fixed" ? "Actual (corrected)" : "Actual (as reported)", data: act, borderColor: C.accent, backgroundColor: C.accent, pointRadius: pointR(M.length, i), tension: .25, borderWidth: 2.5 },
+      { label: "Budget", data: bud, borderColor: C.muted, backgroundColor: C.muted, borderDash: [5, 4], pointRadius: 0, tension: .25, borderWidth: 2 },
+    ];
+    if (S.mode === "fixed" && raw.some((v, k) => Math.abs(v - fix[k]) > 1))
+      ds.push({ label: "As reported", data: raw, borderColor: C.bad, backgroundColor: C.bad, borderDash: [2, 3], pointRadius: 0, tension: .25, borderWidth: 1.5 });
+    chTrend.data.datasets = ds;
+    chTrend.update();
+    document.getElementById("capTrend").textContent =
+      `${S.prop === "ALL" ? "All centres" : pName[S.prop]}, monthly tenant sales against budget. The large point is ${mLabel(M[i])}.`;
+
+    // variance by centre (always all three)
+    const vals = props.map(p => {
+      const a = D.monthly[p.id][actualKey()][i], b = D.monthly[p.id].budget[i];
+      return (a - b) / b;
+    });
+    chVar.data.datasets = [{
+      label: "Variance", data: vals, borderRadius: 4, maxBarThickness: 64,
+      backgroundColor: vals.map((v, k) => {
+        const c = v >= 0 ? C.good : C.bad;
+        return S.prop === "ALL" || props[k].id === S.prop ? c : c + "55";
+      }),
+    }];
+    chVar.update();
+    document.getElementById("capVar").textContent = `${mLabel(M[i])}, actual vs budget. Click a bar to focus on that centre.`;
+
+    // traffic: last 12 months vs the same months a year earlier
+    const end = Math.max(i, 12), start = end - 11;
+    const idx = Array.from({ length: 12 }, (_, k) => start + k).filter(k => k < M.length);
+    chTraffic.data.labels = idx.map(k => mShort(M[k]));
+    chTraffic.data.datasets = [
+      { label: "This year", data: idx.map(k => trf[k]), backgroundColor: idx.map(k => k === i ? C.accent : C.accent + "aa"), borderRadius: 3 },
+      { label: "Last year", data: idx.map(k => k - 12 >= 0 ? trf[k - 12] : null), backgroundColor: C.muted + "88", borderRadius: 3 },
+    ];
+    chTraffic.update();
+
+    // occupancy
+    chOcc.data.datasets = [
+      { label: "Leased", data: lea.map(v => v / G), borderColor: C.muted, backgroundColor: C.muted, borderDash: [5, 4], pointRadius: 0, stepped: true, borderWidth: 2 },
+      { label: "Occupied", data: occ.map(v => v / G), borderColor: C.accent, backgroundColor: C.accent, pointRadius: pointR(M.length, i), stepped: true, borderWidth: 2.5 },
+    ];
+    chOcc.update();
+
+    renderTenants();
+    renderIssues();
+    renderExpiries();
+  }
+
+  // audit summary text
+  const p2 = D.monthly.P2, a8 = M.indexOf("2026-08");
+  document.getElementById("auditSummary").innerHTML =
+    `Lakeshore Mall's August sales were reported at <strong>${money(p2.actual_raw[a8])}</strong>, ` +
+    `<strong class="pos">${pct(p2.actual_raw[a8] / p2.budget[a8] - 1)}</strong> against budget. ` +
+    `After the decimal fix they were <strong>${money(p2.actual_fixed[a8])}</strong>, ` +
+    `<strong class="neg">${pct(p2.actual_fixed[a8] / p2.budget[a8] - 1)}</strong>. ` +
+    `Reported as is, the owner would have seen a strong month at a centre that was actually slightly behind plan. ` +
+    `Switch the control bar to <em>As reported</em> and pick August 2026 to see it.`;
+
+  render();
+})();
+</script>
+</body>
+</html>

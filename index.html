@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tobi · Data Analytics Portfolio</title>
+<meta name="description" content="Interactive reporting and analysis projects: retail real estate performance and travel behaviour.">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .proj { display: flex; flex-direction: column; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
+  a.proj:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .proj .result { font-size: 1.05rem; font-weight: 600; margin: 6px 0 10px; }
+  .proj .go { margin-top: auto; padding-top: 14px; color: var(--accent); font-weight: 600; font-size: .92rem; }
+  .proj.soon { opacity: .75; }
+  .skills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 860px) { .skills { grid-template-columns: repeat(2, 1fr); } }
+  .skills .card { padding: 14px 16px; }
+  .skills h3 { font-size: .95rem; margin-bottom: 4px; }
+  .skills p { margin: 0; font-size: .86rem; color: var(--ink-2); }
+</style>
+</head>
+<body>
+
+<nav class="topnav"><div class="wrap">
+  <a href="./">Tobi</a>
+  <div class="links"><a href="#projects">Projects</a><a href="#skills">Skills</a><a href="#contact">Contact</a></div>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">Data analyst · Toronto</div>
+  <h1>Reports people can act on, built on numbers they can trust.</h1>
+  <p class="lede">I turn raw operational data into clear monthly reporting with SQL, Excel and Power BI, and I check it before anyone else sees it. Each project below is an interactive report you can explore in your browser.</p>
+</div></header>
+
+<section id="projects"><div class="wrap">
+  <h2>Projects</h2>
+  <div class="grid g2">
+    <a class="card proj" href="mall-report/">
+      <div class="eyebrow">Retail real estate · Monthly reporting</div>
+      <h3>Retail Centre Performance Report</h3>
+      <div class="result">A centre reported +17.5% over budget. After the month-end data checks, it was −2.4%.</div>
+      <p class="muted small">Sales vs budget, foot traffic, occupancy and lease expiries for three shopping centres, with a month-end data audit that caught 7 issues before reporting.</p>
+      <div class="tags"><span class="tag">SQL</span><span class="tag">Excel</span><span class="tag">Power BI</span><span class="tag">Data validation</span></div>
+      <div class="go">Open the report →</div>
+    </a>
+    <div class="card proj soon">
+      <div class="eyebrow">Transportation · Survey analytics</div>
+      <h3>How People Travel: NHTS Travel Behaviour Report</h3>
+      <div class="result">Coming soon</div>
+      <p class="muted small">818,900 trips from the U.S. National Household Travel Survey, summarised in SQL: how travel mode changes with trip purpose, distance, age and household.</p>
+      <div class="tags"><span class="tag">PostgreSQL</span><span class="tag">Power BI</span><span class="tag">Large datasets</span></div>
+    </div>
+  </div>
+</div></section>
+
+<section id="skills"><div class="wrap">
+  <h2>What I work with</h2>
+  <div class="skills">
+    <div class="card"><h3>SQL</h3><p>PostgreSQL: CTEs, window functions, joins and validation queries.</p></div>
+    <div class="card"><h3>Excel</h3><p>Tables, SUMIFS, XLOOKUP, PivotTables, Power Query and dynamic arrays.</p></div>
+    <div class="card"><h3>Power BI</h3><p>Star-schema models, date tables and DAX measures for variance and YoY.</p></div>
+    <div class="card"><h3>Python</h3><p>pandas for data preparation, checks and automation.</p></div>
+  </div>
+</div></section>
+
+<footer class="footer" id="contact"><div class="wrap">
+  <!-- TODO: add your email and LinkedIn link -->
+  Contact: <a href="https://www.linkedin.com/in/morotobi">LinkedIn</a>
+  <p> Email : tobi.rev30@gmail.com </p>
+
+</div></footer>
+
+</body>
+</html>
