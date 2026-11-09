@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transaction Fraud Report</title>
+<meta name="description" content="Fraud analysis of 1M+ mobile-money transactions, a leakage-checked XGBoost model you can try in the browser, and a plain-English SQL assistant.">
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  @media (max-width: 960px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { padding: 14px 16px; }
+  .kpi .label { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); font-weight: 600; }
+  .kpi .val { font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em; margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .kpi .sub { font-size: .84rem; color: var(--ink-2); }
+  .neg { color: var(--bad); }
+  .pos { color: var(--good); }
+  .chip { display: inline-block; font-size: .74rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; vertical-align: middle; }
+  .chip.bad { background: var(--bad-soft); color: var(--bad); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.good { background: var(--good-soft); color: var(--good); }
+
+  .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 860px) { .charts { grid-template-columns: 1fr; } }
+  .charts .wide { grid-column: 1 / -1; }
+  .charts .card h3 { margin-bottom: 2px; }
+  .charts .cap { font-size: .88rem; color: var(--ink-2); margin-bottom: 12px; min-height: 1.3em; }
+  .chartbox { position: relative; height: 270px; }
+  .wide .chartbox { height: 300px; }
+
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+
+  .form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+  @media (max-width: 560px) { .form { grid-template-columns: 1fr; } }
+  .form label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--ink-2); font-weight: 600; }
+  .form input, .form select {
+    font: inherit; font-size: .95rem; font-weight: 400; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%;
+  }
+  .result { border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--line); padding: 18px; }
+  .result .score { font-size: 2.6rem; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .meter { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 12px 0; }
+  .meter > div { height: 100%; border-radius: 999px; transition: width .25s, background .25s; }
+
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; }
+  .steps li { counter-increment: s; position: relative; padding-left: 40px; margin-bottom: 18px; }
+  .steps li::before {
+    content: counter(s); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent); font-weight: 700; display: grid; place-items: center; font-size: .85rem;
+  }
+  details.code summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: .92rem; margin-bottom: 8px; }
+  .dl a { display: inline-block; margin: 0 14px 8px 0; }
+  .grid > * { min-width: 0; }
+
+  .ask { display: flex; gap: 8px; margin-top: 10px; }
+  .ask input {
+    flex: 1; min-width: 0; font: inherit; font-size: .95rem; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  }
+  .ask button {
+    font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 8px;
+    padding: 10px 18px; cursor: pointer;
+  }
+  .ask button:disabled { opacity: .6; cursor: wait; }
+  #askOut { margin-top: 14px; }
+  #askOut .tablewrap { max-height: 360px; overflow: auto; }
+  #askOut details { margin-top: 10px; }
+  #askOut details summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: .9rem; }
+</style>
+</head>
+<body>
+
+<nav class="topnav"><div class="wrap">
+  <a href="../">← Portfolio</a>
+  <div class="links"><a href="#dashboard">Dashboard</a><a href="#model">Model</a><a href="#predict">Try it</a><a href="#method">How I built it</a></div>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">Payments · Fraud analytics · Machine learning</div>
+  <h1>Transaction Fraud Report</h1>
+  <p class="lede">Where fraud happens in a month of mobile-money transactions, how much the existing rule misses, and a fraud model checked for data leakage.</p>
+  <span class="note">PaySim simulated mobile-money data · 1,048,575 transactions over 743 hours (31 days) · 1,348 frauds</span>
+  <div class="tags"><span class="tag">SQL</span><span class="tag">Python</span><span class="tag">XGBoost</span><span class="tag">Leakage checks</span><span class="tag">Streamlit</span><span class="tag">LLM text-to-SQL</span></div>
+</div></header>
+
+<section id="dashboard" style="padding-top:0"><div class="wrap">
+  <div class="kpis" id="kpis"></div>
+
+  <div class="charts" style="margin-top:16px">
+    <div class="card">
+      <h3>Fraud rate by transaction type</h3>
+      <div class="cap" id="cap1"></div>
+      <div class="chartbox"><canvas id="c1"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Fraud cases by transaction type</h3>
+      <div class="cap" id="cap1b"></div>
+      <div class="chartbox"><canvas id="c1b"></canvas></div>
+    </div>
+
+    <div class="card wide">
+      <h3>Fraud rate by hour of day</h3>
+      <div class="cap" id="cap3"></div>
+      <div class="chartbox"><canvas id="c3"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Fraud rate by amount</h3>
+      <div class="cap" id="cap2"></div>
+      <div class="chartbox"><canvas id="c2"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Fraud vs normal transactions</h3>
+      <div class="cap" id="cap4"></div>
+      <div class="chartbox"><canvas id="c4"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Frauds caught by the existing rule</h3>
+      <div class="cap" id="cap5"></div>
+      <div class="chartbox"><canvas id="c5"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Fraud value: caught vs missed</h3>
+      <div class="cap" id="cap5b"></div>
+      <div class="chartbox"><canvas id="c5b"></canvas></div>
+    </div>
+  </div>
+</div></section>
+
+<section id="model"><div class="wrap">
+  <h2>Fraud model</h2>
+  <div class="charts">
+    <div class="card">
+      <h3>Model comparison on later, unseen hours</h3>
+      <div class="cap" id="capCmp"></div>
+      <div class="chartbox"><canvas id="cCmp"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>What the model relies on</h3>
+      <div class="cap">Share of total gain in the leakage-safe model.</div>
+      <div class="chartbox"><canvas id="cImp"></canvas></div>
+    </div>
+    <div class="card wide">
+      <h3>Share that was actually fraud, by model score</h3>
+      <div class="cap" id="capBand"></div>
+      <div class="chartbox"><canvas id="cBand"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>Leakage checks</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Column</th><th>Problem</th><th>Decision</th></tr></thead>
+      <tbody>
+        <tr><td><code>isFlaggedFraud</code></td><td>Output of the existing rule. Only ever set on fraud rows.</td><td><span class="chip bad">dropped</span></td></tr>
+        <tr><td><code>newbalanceOrig</code>, <code>newbalanceDest</code></td><td>Balances after the transaction, not known at approval.</td><td><span class="chip bad">dropped</span></td></tr>
+        <tr><td><code>nameOrig</code>, <code>nameDest</code></td><td>Account IDs. The model would memorise accounts.</td><td><span class="chip bad">dropped</span></td></tr>
+        <tr><td><code>step</code></td><td>A running clock through the file.</td><td><span class="chip warn">hour of day only</span></td></tr>
+        <tr><td>Train/test split</td><td>A random split mixes future and past.</td><td><span class="chip good" id="splitChip">time-based</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</div></section>
+
+<section id="predict"><div class="wrap">
+  <h2>Score a transaction</h2>
+  <div class="grid g2">
+    <div class="card">
+      <form class="form" id="predForm" onsubmit="return false">
+        <label>Type
+          <select id="inType"><option value="TRANSFER">TRANSFER</option><option value="CASH_OUT">CASH_OUT</option><option value="OTHER">PAYMENT / CASH_IN / DEBIT</option></select>
+        </label>
+        <label>Hour of day
+          <input id="inHour" type="number" min="0" max="23" step="1" placeholder="0–23">
+        </label>
+        <label>Amount ($)
+          <input id="inAmount" type="number" min="0" step="0.01" placeholder="e.g. 250000">
+        </label>
+        <label>Sender balance before ($)
+          <input id="inOrg" type="number" min="0" step="0.01" placeholder="e.g. 250000">
+        </label>
+        <label>Receiver balance before ($)
+          <input id="inDest" type="number" min="0" step="0.01" placeholder="e.g. 0">
+        </label>
+      </form>
+    </div>
+    <div class="result" aria-live="polite">
+      <div class="small muted" style="font-weight:600;text-transform:uppercase;letter-spacing:.06em">Fraud risk score</div>
+      <div class="score" id="outScore">—</div>
+      <div class="meter"><div id="outMeter" style="width:0"></div></div>
+      <div id="outDecision"></div>
+    </div>
+  </div>
+</div></section>
+
+<section id="sql"><div class="wrap">
+  <div class="card">
+    <h3>Ask the data in plain English</h3>
+    <form class="ask" id="askForm">
+      <input id="askInput" type="text" autocomplete="off" placeholder="e.g. Which hour of the day has the most fraud?  (or type a SELECT)">
+      <button type="submit">Ask</button>
+    </form>
+    <div id="askOut"></div>
+  </div>
+</div></section>
+
+<section id="method"><div class="wrap">
+  <h2>How I built it</h2>
+  <div class="grid g2">
+    <div>
+      <ol class="steps">
+        <li><strong>Profiled the data</strong>: 1,048,575 transactions; fraud only in TRANSFER and CASH_OUT.</li>
+        <li><strong>Built the charts</strong> from grouped aggregations in SQL and pandas.</li>
+        <li><strong>Checked every column for leakage</strong> before modelling, and split train and test by time.</li>
+        <li><strong>Trained XGBoost</strong> with class weighting for the rare fraud class (no hyperparameter search), and compared it with a leaky model and a minimal one.</li>
+        <li><strong>Exported the trees</strong> so the model scores in the browser, matching XGBoost to 6 decimal places.</li>
+        <li><strong>Built a Streamlit app</strong> where a small LLM on Groq writes read-only SQL from plain-English questions and answers them.</li>
+      </ol>
+    </div>
+    <div>
+      <details class="code" open><summary>SQL: fraud rate by transaction type</summary>
+<pre><code>SELECT type,
+       COUNT(*)                     AS transactions,
+       SUM(isFraud)                 AS fraud_cases,
+       ROUND(AVG(isFraud) * 100, 3) AS fraud_rate_pct
+FROM transactions
+GROUP BY type
+ORDER BY fraud_cases DESC;</code></pre></details>
+      <details class="code"><summary>SQL: frauds that empty the sender's account</summary>
+<pre><code>SELECT isFraud,
+       AVG(CASE WHEN amount = oldbalanceOrg
+                 AND amount &gt; 0 THEN 1.0 ELSE 0 END) AS share_draining
+FROM transactions
+WHERE type IN ('TRANSFER', 'CASH_OUT')
+GROUP BY isFraud;</code></pre></details>
+      <details class="code"><summary>Python: leakage-safe features and time split</summary>
+<pre><code>SAFE = ["is_transfer", "amount", "oldbalanceOrg",
+        "oldbalanceDest", "hour"]           # nothing known only after approval
+df["hour"] = df.step % 24
+train = df[df.step &lt; 300]                  # earlier hours
+test  = df[df.step &gt;= 300]                 # later, unseen hours
+model = XGBClassifier(n_estimators=200, max_depth=4,
+                      scale_pos_weight=neg / pos)
+model.fit(train[SAFE], train.isFraud)</code></pre></details>
+    </div>
+  </div>
+  <div class="card dl" style="margin-top:12px">
+    <h3>Data and code</h3>
+    <a href="data/sample_transactions.csv">sample_transactions.csv (20,000 rows)</a><a href="python/build_data.py">build_data.py</a><a href="python/train_model.py">train_model.py</a><a href="python/app.py">app.py (Streamlit)</a><a href="python/llm.py">llm.py</a><a href="model_web.json">model_web.json</a>
+  </div>
+</div></section>
+
+<footer class="footer"><div class="wrap">
+  Data: PaySim, a simulator of mobile-money transactions based on real logs from a mobile-money service. All accounts are synthetic.
+</div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- data as scripts (not fetch) so the page also works when opened straight from disk -->
+<script src="data.js"></script>
+<script src="model_web.js"></script>
+<script>
+(function () {
+  const D = window.FRAUD_DATA, M = window.FRAUD_MODEL;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const C = { ink2: css("--ink-2"), line: css("--line"), accent: css("--accent"), good: css("--good"),
+              bad: css("--bad"), warn: css("--warn"), muted: css("--muted-line"), surface: css("--surface") };
+  const $ = id => document.getElementById(id);
+  const n0 = v => Math.round(v).toLocaleString();
+  const money = v => v >= 1e9 ? "$" + (v / 1e9).toFixed(2) + "B" : v >= 1e6 ? "$" + (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? "$" + Math.round(v / 1e3) + "K" : "$" + Math.round(v);
+  const pct = (v, d = 1) => (v * 100).toFixed(d) + "%";
+  const K = D.kpi, safe = M.results.leakage_safe, leak = M.results.all_columns, mini = M.results.amount_type_hour;
+
+  // ---------- KPIs (no Chart.js needed)
+  const kpi = (label, val, sub) => `<div class="card kpi"><div class="label">${label}</div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
+  $("kpis").innerHTML = [
+    kpi("Transactions", n0(K.transactions), `over ${K.steps} hours`),
+    kpi("Value moved", money(K.value), "all types"),
+    kpi("Fraud cases", n0(K.fraud_count), `<span class="neg">${pct(K.fraud_rate, 2)}</span> of transactions`),
+    kpi("Fraud value", money(K.fraud_value), `${pct(K.fraud_value / K.value, 2)} of value`),
+    kpi("Caught by rule", D.q5.flagged_and_fraud, `<span class="neg">${pct(D.q5.recall)}</span> of fraud cases`),
+  ].join("");
+
+  // ---------- captions
+  const T = D.q1_types, B = D.q2_bands, H = D.q3_hours;
+  const tr = T.find(t => t.type === "TRANSFER"), co = T.find(t => t.type === "CASH_OUT");
+  $("cap1").textContent = `Transfers ${pct(tr.fraud_rate, 2)}, cash-outs ${pct(co.fraud_rate, 2)}. The other three types had no fraud.`;
+  $("cap1b").textContent = `${n0(tr.fraud)} transfers and ${n0(co.fraud)} cash-outs were fraud.`;
+  $("cap3").textContent = `${pct(D.q3_night_rate)} of transactions between 2 and 6 a.m. were fraud, against ${pct(D.q3_day_rate, 2)} in the daytime.`;
+  $("cap2").textContent = `Transfers and cash-outs. Over $5M, ${pct(B.at(-1).fraud_rate)} were fraud; ${D.q2_capped_10m} frauds were exactly $10M.`;
+  $("cap4").textContent = `${pct(D.q4.fraud_drain_share, 0)} of frauds sent the sender's entire balance; no normal transaction did.`;
+  $("cap5").textContent = `The rule flagged ${D.q5.flagged} transactions all month.`;
+  $("cap5b").textContent = `${money(D.q5.value_missed)} of fraud got through.`;
+  $("capCmp").textContent = `Tested on ${n0(M.test_rows)} later transfers and cash-outs (${M.test_fraud} frauds).`;
+  const top = M.score_bands.at(-1);
+  $("capBand").textContent = `Test period. Of ${n0(top.count)} transactions scored 99%+, ${pct(top.fraud / top.count, 0)} were fraud.`;
+  $("splitChip").textContent = `train hours 1–${M.split_step - 1}, test ${M.split_step}–743`;
+
+  if (!window.Chart) { console.warn("Chart.js did not load"); }
+  else {
+    Chart.defaults.color = C.ink2;
+    Chart.defaults.borderColor = C.line;
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    const base = (fmt, tip, extra = {}) => Object.assign({
+      responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: tip } } },
+      scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } }, y: { beginAtZero: true, ticks: { callback: v => fmt(v) }, grid: { color: C.line } } },
+    }, extra);
+    const legendBottom = { display: true, position: "bottom", labels: { boxWidth: 12, boxHeight: 12 } };
+
+    new Chart($("c1"), { type: "bar",
+      data: { labels: T.map(t => t.type), datasets: [{ data: T.map(t => t.fraud_rate), backgroundColor: T.map(t => t.fraud ? C.bad : C.muted), borderRadius: 4, maxBarThickness: 56 }] },
+      options: base(v => pct(v, 2), c => ` ${pct(c.parsed.y, 3)} fraud · ${n0(T[c.dataIndex].fraud)} of ${n0(T[c.dataIndex].count)}`) });
+
+    new Chart($("c1b"), { type: "bar",
+      data: { labels: T.map(t => t.type), datasets: [{ data: T.map(t => t.fraud), backgroundColor: T.map(t => t.fraud ? C.bad : C.muted), borderRadius: 4, maxBarThickness: 56 }] },
+      options: base(v => n0(v), c => ` ${n0(c.parsed.y)} frauds · ${money(T[c.dataIndex].fraud_value)}`) });
+
+    new Chart($("c3"), {
+      data: { labels: H.map(h => String(h.hour).padStart(2, "0")),
+        datasets: [
+          { type: "line", label: "Fraud rate", data: H.map(h => h.fraud_rate), borderColor: C.bad, backgroundColor: C.bad, yAxisID: "y", pointRadius: 2, tension: .3, borderWidth: 2.5 },
+          { type: "bar", label: "Transactions", data: H.map(h => h.count), backgroundColor: C.muted + "66", yAxisID: "y1", borderRadius: 2 },
+        ] },
+      options: { responsive: true, maintainAspectRatio: false, animation: { duration: 250 }, interaction: { mode: "index", intersect: false },
+        plugins: { legend: { position: "bottom", labels: { boxWidth: 12, boxHeight: 2 } },
+          tooltip: { callbacks: { title: c => `Hour ${c[0].label}:00`, label: c => c.dataset.yAxisID === "y" ? ` Fraud rate: ${pct(c.parsed.y, 2)} (${H[c.dataIndex].fraud} cases)` : ` Transactions: ${n0(c.parsed.y)}` } } },
+        scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 6 } },
+          y: { position: "left", beginAtZero: true, ticks: { callback: v => pct(v, 0) }, grid: { color: C.line }, title: { display: true, text: "Fraud rate" } },
+          y1: { position: "right", beginAtZero: true, grid: { display: false }, ticks: { callback: v => v >= 1000 ? Math.round(v / 1000) + "K" : v }, title: { display: true, text: "Transactions" } } } } });
+
+    new Chart($("c2"), { type: "bar",
+      data: { labels: B.map(b => b.band), datasets: [{ data: B.map(b => b.fraud_rate), backgroundColor: B.map(b => b.fraud_rate > 0.01 ? C.bad : C.accent), borderRadius: 4, maxBarThickness: 56 }] },
+      options: base(v => pct(v, 1), c => ` ${pct(c.parsed.y, 2)} fraud · ${n0(B[c.dataIndex].fraud)} of ${n0(B[c.dataIndex].count)}`) });
+
+    new Chart($("c4"), { type: "bar",
+      data: { labels: ["Sends entire balance", "Receiver balance 0 before and after"],
+        datasets: [
+          { label: "Fraud", data: [D.q4.fraud_drain_share, D.q4.fraud_dest_zero], backgroundColor: C.bad, borderRadius: 4, maxBarThickness: 64 },
+          { label: "Not fraud", data: [D.q4.legit_drain_share, D.q4.legit_dest_zero], backgroundColor: C.muted, borderRadius: 4, maxBarThickness: 64 },
+        ] },
+      options: base(v => pct(v, 0), c => ` ${c.dataset.label}: ${pct(c.parsed.y, 2)}`, {}) });
+    Chart.getChart($("c4")).options.plugins.legend = legendBottom; Chart.getChart($("c4")).update();
+
+    const doughnut = (el, labels, data, tip) => new Chart(el, { type: "doughnut",
+      data: { labels, datasets: [{ data, backgroundColor: [C.good, C.bad], borderColor: C.surface, borderWidth: 2 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: "62%", plugins: { legend: legendBottom, tooltip: { callbacks: { label: tip } } } } });
+    doughnut($("c5"), ["Caught", "Missed"], [D.q5.flagged_and_fraud, K.fraud_count - D.q5.flagged_and_fraud], c => ` ${c.label}: ${n0(c.parsed)} frauds`);
+    doughnut($("c5b"), ["Caught", "Missed"], [D.q5.value_caught, D.q5.value_missed], c => ` ${c.label}: ${money(c.parsed)}`);
+
+    const models = [["All columns (leaky)", leak], ["Leakage-safe (used)", safe], ["Amount, type, hour", mini]];
+    new Chart($("cCmp"), { type: "bar",
+      data: { labels: models.map(m => m[0]),
+        datasets: [
+          { label: "PR-AUC", data: models.map(m => m[1].pr_auc), backgroundColor: C.accent, borderRadius: 4, maxBarThickness: 34 },
+          { label: "Recall", data: models.map(m => m[1].recall), backgroundColor: C.good, borderRadius: 4, maxBarThickness: 34 },
+          { label: "Precision", data: models.map(m => m[1].precision), backgroundColor: C.warn, borderRadius: 4, maxBarThickness: 34 },
+        ] },
+      options: base(v => pct(v, 0), c => ` ${c.dataset.label}: ${c.dataset.label === "PR-AUC" ? c.parsed.y.toFixed(3) : pct(c.parsed.y, 0)}`,
+        { plugins: { legend: legendBottom, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.dataset.label === "PR-AUC" ? c.parsed.y.toFixed(3) : pct(c.parsed.y, 0)}` } } } }) });
+    Chart.getChart($("cCmp")).options.scales.y.max = 1; Chart.getChart($("cCmp")).update();
+
+    new Chart($("cImp"), { type: "bar",
+      data: { labels: M.importance.map(f => f.label), datasets: [{ data: M.importance.map(f => f.share), backgroundColor: C.accent, borderRadius: 4, maxBarThickness: 26 }] },
+      options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => " " + pct(c.parsed.x) + " of gain" } } },
+        scales: { x: { beginAtZero: true, ticks: { callback: v => pct(v, 0) }, grid: { color: C.line } }, y: { grid: { display: false } } } } });
+
+    const SB = M.score_bands;
+    new Chart($("cBand"), { type: "bar",
+      data: { labels: SB.map(b => "Score " + b.band), datasets: [{ data: SB.map(b => b.fraud / b.count), backgroundColor: SB.map(b => b.fraud / b.count > 0.5 ? C.bad : C.accent), borderRadius: 4, maxBarThickness: 70 }] },
+      options: base(v => pct(v, 0), c => ` ${pct(c.parsed.y, 1)} fraud · ${n0(SB[c.dataIndex].fraud)} of ${n0(SB[c.dataIndex].count)}`) });
+    Chart.getChart($("cBand")).options.scales.y.max = 1; Chart.getChart($("cBand")).update();
+  }
+
+  // ---------- in-browser scoring (same tree walk as train_model.py's check)
+  const f32 = Math.fround;
+  function score(x) {
+    let m = M.bias;
+    for (const t of M.trees) {
+      let k = 0;
+      while (t[k].length > 1) {
+        const [f, thr, y, n, miss] = t[k];
+        const v = x[f];
+        k = (v == null || Number.isNaN(v)) ? miss : (f32(v) < f32(thr) ? y : n);
+      }
+      m += t[k][0];
+    }
+    return 1 / (1 + Math.exp(-m));
+  }
+  function predict() {
+    const type = $("inType").value;
+    const raw = id => $(id).value.trim();
+    const num = id => { const v = parseFloat(raw(id)); return Number.isFinite(v) && v >= 0 ? v : 0; };
+    const reset = () => { $("outScore").textContent = "—"; $("outMeter").style.width = "0"; $("outDecision").innerHTML = `<span class="small muted">Enter an amount to see the score.</span>`; };
+    if (type === "OTHER") {
+      $("outScore").textContent = "0%";
+      $("outMeter").style.width = "0";
+      $("outDecision").innerHTML = `<span class="chip good">Approve</span>`;
+      return;
+    }
+    if (!raw("inAmount")) return reset();
+    const hour = Math.min(23, Math.max(0, Math.round(num("inHour"))));
+    const p = score([type === "TRANSFER" ? 1 : 0, num("inAmount"), num("inOrg"), num("inDest"), hour]);
+    const [label, cls, color] = p >= 0.9 ? ["Hold for review", "bad", C.bad] : p >= 0.5 ? ["Review", "warn", C.warn] : ["Approve", "good", C.good];
+    $("outScore").textContent = pct(p, p < 0.01 ? 2 : 1);
+    $("outMeter").style.width = Math.max(1, p * 100) + "%";
+    $("outMeter").style.background = color;
+    $("outDecision").innerHTML = `<span class="chip ${cls}">${label}</span>`;
+  }
+  document.querySelectorAll("#predForm input, #predForm select").forEach(el => el.addEventListener("input", predict));
+  predict();
+})();
+</script>
+<script>
+/* "Ask the data": runs read-only SQL on the 20,000-row sample in the browser (SQLite via sql.js).
+   Plain-English questions are matched to SQL by keyword; the Streamlit app uses an LLM on Groq for any question.
+   The sample and sql.js load on first use with <script> tags, so this works when opened from disk too. */
+(function () {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let dbPromise = null, chart = null;
+
+  function loadScript(src) {
+    return new Promise((ok, fail) => {
+      const s = document.createElement("script");
+      s.src = src; s.onload = ok; s.onerror = () => fail(new Error("Couldn't load " + src));
+      document.head.appendChild(s);
+    });
+  }
+  function getDb() {
+    if (!dbPromise) dbPromise = (async () => {
+      await Promise.all([
+        loadScript("https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-asm.js"),
+        loadScript("data/sample_transactions.js"),
+      ]);
+      const SQL = await initSqlJs();
+      const db = new SQL.Database();
+      const d = window.FRAUD_SAMPLE;
+      db.run(`CREATE TABLE transactions (transaction_id TEXT, step INTEGER, type TEXT, amount REAL, nameorig TEXT,
+        oldbalanceorg REAL, newbalanceorig REAL, namedest TEXT, oldbalancedest REAL, newbalancedest REAL,
+        isflaggedfraud INTEGER, isfraud INTEGER)`);
+      db.run("BEGIN");
+      const st = db.prepare(`INSERT INTO transactions (${d.columns.join(",")}) VALUES (${d.columns.map(() => "?").join(",")})`);
+      d.rows.forEach(r => st.run(r));
+      st.free(); db.run("COMMIT");
+      window.FRAUD_SAMPLE = null;
+      return db;
+    })();
+    dbPromise.catch(() => { dbPromise = null; });
+    return dbPromise;
+  }
+
+  const RATE = "ROUND(100.0 * SUM(isfraud) / COUNT(*), 2) AS fraud_rate_pct";
+  const RULES = [
+    [/\b(hour|night|time of day|when)\b/, `SELECT step % 24 AS hour_of_day, SUM(isfraud) AS fraud_cases, COUNT(*) AS transactions, ${RATE}
+FROM transactions GROUP BY hour_of_day ORDER BY hour_of_day`],
+    [/\b(day|daily|date)\b/, `SELECT step / 24 + 1 AS day, SUM(isfraud) AS fraud_cases, COUNT(*) AS transactions
+FROM transactions GROUP BY day ORDER BY day`],
+    [/\b(flag|flagged|rule)\b/, `SELECT isflaggedfraud AS flagged, isfraud AS fraud, COUNT(*) AS transactions, ROUND(SUM(amount), 0) AS total_amount
+FROM transactions GROUP BY flagged, fraud ORDER BY flagged DESC, fraud DESC`],
+    [/\b(drain|empt|entire|whole|all (the|their) (money|balance))/, `SELECT isfraud AS fraud, COUNT(*) AS transactions,
+       ROUND(100.0 * SUM(amount = oldbalanceorg AND amount > 0) / COUNT(*), 1) AS pct_whole_balance_sent
+FROM transactions WHERE type IN ('TRANSFER','CASH_OUT') GROUP BY fraud`],
+    [/\b(largest|biggest|top|highest|max)\b/, `SELECT transaction_id, step % 24 AS hour, type, amount, oldbalanceorg, oldbalancedest
+FROM transactions WHERE isfraud = 1 ORDER BY amount DESC LIMIT 10`],
+    [/\b(average|avg|mean|median|typical)\b/, `SELECT CASE isfraud WHEN 1 THEN 'fraud' ELSE 'normal' END AS kind,
+       COUNT(*) AS transactions, ROUND(AVG(amount), 0) AS avg_amount, ROUND(MAX(amount), 0) AS max_amount
+FROM transactions GROUP BY kind`],
+    [/\b(amount|size|big|large|small|band|value)\b/, `SELECT CASE WHEN amount < 10000 THEN '1: < $10K' WHEN amount < 100000 THEN '2: $10K-100K'
+            WHEN amount < 1000000 THEN '3: $100K-1M' WHEN amount < 5000000 THEN '4: $1M-5M' ELSE '5: $5M+' END AS amount_band,
+       SUM(isfraud) AS fraud_cases, COUNT(*) AS transactions, ${RATE}
+FROM transactions GROUP BY amount_band ORDER BY amount_band`],
+    [/\b(type|kind|category|transfer|cash|payment|debit)/, `SELECT type, SUM(isfraud) AS fraud_cases, COUNT(*) AS transactions, ${RATE}
+FROM transactions GROUP BY type ORDER BY fraud_cases DESC`],
+    [/\b(how many|count|number|total|rate|percent|share)\b/, `SELECT COUNT(*) AS transactions, SUM(isfraud) AS fraud_cases, ${RATE}, ROUND(SUM(amount * isfraud), 0) AS fraud_amount
+FROM transactions`],
+  ];
+
+  function toSql(q) {
+    if (/^\s*(select|with)\b/i.test(q)) return q;
+    const t = q.toLowerCase();
+    for (const [re, sql] of RULES) if (re.test(t)) return sql;
+    return null;
+  }
+
+  function fmt(v) {
+    if (v === null) return "";
+    if (typeof v === "number" && !Number.isInteger(v)) return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    if (typeof v === "number" && Math.abs(v) >= 10000) return v.toLocaleString();
+    return v;
+  }
+
+  function show(res, sql) {
+    const out = $("askOut");
+    if (chart) { chart.destroy(); chart = null; }
+    if (!res) { out.innerHTML = `<p class="muted small">No rows.</p>`; return; }
+    const { columns, values } = res;
+    const rows = values.slice(0, 500);
+    let html = `<p class="muted small">${values.length.toLocaleString()} row(s)${values.length > 500 ? ", first 500 shown" : ""}</p>`;
+    if (columns.some(c => /fraud.*(rate|pct|percent)/i.test(c)))
+      html += `<p class="small"><span class="chip warn">Sample</span> Every fraud row was kept, so fraud is ~6.7% here vs 0.13% in the full data. Compare rates with each other.</p>`;
+    const numCol = columns.findIndex((c, i) => i > 0 && rows.every(r => typeof r[i] === "number"));
+    if (rows.length > 1 && rows.length <= 50 && numCol > 0)
+      html += `<div class="chartbox" style="height:240px;margin-bottom:12px"><canvas id="askChart"></canvas></div>`;
+    html += `<div class="tablewrap"><table><thead><tr>${columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>` +
+      rows.map(r => `<tr>${r.map(v => `<td>${esc(fmt(v))}</td>`).join("")}</tr>`).join("") + `</tbody></table></div>`;
+    html += `<details><summary>SQL</summary><pre><code>${esc(sql)}</code></pre></details>`;
+    out.innerHTML = html;
+    if ($("askChart") && window.Chart) {
+      const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#3b6fd8";
+      chart = new Chart($("askChart"), {
+        type: "bar",
+        data: { labels: rows.map(r => r[0]), datasets: [{ label: columns[numCol], data: rows.map(r => r[numCol]), backgroundColor: accent }] },
+        options: { maintainAspectRatio: false, plugins: { legend: { display: false } } },
+      });
+    }
+  }
+
+  $("askForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const q = $("askInput").value.trim();
+    const out = $("askOut");
+    if (!q) return;
+    const sql = toSql(q);
+    if (!sql) {
+      out.innerHTML = `<p class="small muted">I couldn't match that. Try asking about fraud by type, hour, day, amount, the flag rule, or the biggest frauds, or type a SELECT on the <code>transactions</code> table.</p>`;
+      return;
+    }
+    const clean = sql.trim().replace(/;\s*$/, "").replace(/::\s*\w+/g, "");   // drop PostgreSQL casts like ::numeric
+    if (clean.includes(";")) { out.innerHTML = `<p class="small neg">Run one statement at a time.</p>`; return; }
+    const btn = $("askForm").querySelector("button");
+    btn.disabled = true;
+    out.innerHTML = `<p class="small muted">Loading the data…</p>`;
+    try {
+      const db = await getDb();
+      show(db.exec(clean)[0], sql.trim());
+    } catch (err) {
+      out.innerHTML = `<p class="small neg">${esc(err.message)}</p>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  $("askInput").addEventListener("focus", () => { getDb().catch(() => {}); }, { once: true });
+})();
+</script>
+<script data-goatcounter="https://freezeram.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

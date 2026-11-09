@@ -1,0 +1,9 @@
+# Large raw files: too big for GitHub. Rebuild them from Kaggle's PaySim dataset (see README).
+transaction_streaming_data.csv
+notebooks/data.csv
+notebooks/.ipynb_checkpoints/
+
+# Secrets
+python/.env
+
+__pycache__/
