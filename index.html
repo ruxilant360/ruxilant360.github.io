@@ -17,20 +17,76 @@
   .skills .card { padding: 14px 16px; }
   .skills h3 { font-size: .95rem; margin-bottom: 4px; }
   .skills p { margin: 0; font-size: .86rem; color: var(--ink-2); }
+  .jobs { display: grid; gap: 14px; }
+  .job-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; margin-bottom: 4px; }
+  .job-head h3 { margin: 0; font-size: 1.12rem; }
+  .job .company { font-weight: 600; color: var(--accent); margin-bottom: 10px; }
+  .job .dates { font-size: .88rem; color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .job ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+  .job li { font-size: .95rem; color: var(--ink-2); }
+  .job li strong { color: var(--ink); }
 </style>
 </head>
 <body>
 
 <nav class="topnav"><div class="wrap">
   <a href="./">Tobi</a>
-  <div class="links"><a href="#projects">Projects</a><a href="#skills">Skills</a><a href="#contact">Contact</a></div>
+  <div class="links"><a href="#experience">Experience</a><a href="#projects">Projects</a><a href="#skills">Skills</a><a href="#contact">Contact</a></div>
 </div></nav>
 
 <header class="hero"><div class="wrap">
-  <div class="eyebrow">Data analyst | Machine Learning | Agentic AI workflows </div>
-  <h1>Reports people can act on, built on numbers they can trust.</h1>
+  <div class="eyebrow">Data analyst | Machine Learning | Agentic AI </div>
+  <h1>Building scalable data and end-to-end machine Learning pipelines and Agentic AI worflows </h1>
   <p class="lede">I turn raw operational data into clear monthly reporting with SQL, Excel and Power BI, and I check it before anyone else sees it. Each project below is an interactive report you can explore in your browser.</p>
 </div></header>
+
+<!-- =====================================================================
+     WORK EXPERIENCE: edit here.
+     Each job is one <article class="card job"> ... </article> block.
+       - Change the text between the tags (job title, company, dates, bullets).
+       - Add a bullet:  copy one <li>...</li> line.
+       - Add a job:     copy a whole <article> block and paste it above or below.
+       - Remove a job:  delete its whole <article> block.
+     Newest job first.
+     ===================================================================== -->
+<section id="experience"><div class="wrap">
+  <h2>Experience</h2>
+  <div class="jobs">
+
+    <!-- JOB 1 -->
+    <article class="card job">
+      <div class="job-head">
+        <h3>Data Analyst</h3>
+        <span class="dates">Apr 2025 – Sep 2026</span>
+      </div>
+      <div class="company">MKRAK Management Inc.</div>
+      <ul>
+        <li><strong>Demand forecasting:</strong> Developed a SKU-level demand forecasting pipeline for 300+ golf products across 50+ retail accounts using Python, SQL (Google BigQuery) and XGBoost, cutting forecast error (MAPE) by 18% and peak-season stockouts by 25%.</li>
+        <li><strong>Data integration:</strong> Integrated sales, order and inventory data from SAP S/4HANA and Microsoft Dynamics 365 into a single, reliable source for forecasting and reporting.</li>
+        <li><strong>KPIs and dashboards:</strong> Worked with sales and operations leads to define shared KPIs and metric definitions, and built Power BI and Streamlit dashboards tracking forecast accuracy, inventory and business KPIs for 10+ stakeholders.</li>
+        <li><strong>Conversational analytics agent:</strong> Built an agent (LangGraph, RAG with FAISS, SQL tool-calling over PostgreSQL) that let staff query inventory and orders in plain English, with 90% accuracy on a 100-question evaluation set.</li>
+        <li><strong>Deployment and governance:</strong> Deployed forecasting and agent services as Dockerized FastAPI endpoints with CI/CD and automated testing, and enforced data quality rules, model drift monitoring (PSI and KS tests) and role-based access controls to protect confidential data.</li>
+      </ul>
+    </article>
+
+    <!-- JOB 2 -->
+    <article class="card job">
+      <div class="job-head">
+        <h3>Junior Data Analyst</h3>
+        <span class="dates"> January 2023 - May 2024</span>
+      </div>
+      <div class="company">Pecksgrey Group</div>
+      <ul>
+        <li><strong>Cost overrun analysis:</strong> Analyzed historical bid vs. actual cost data across 120+ completed projects using Python and SQL, identifying the line items most prone to overruns (concrete, rebar, labor overtime); findings informed a revised estimating contingency that improved bid accuracy by ~12%.</li>
+        <li><strong>Schedule delay drivers:</strong> Built a Power BI dashboard tracking schedule performance (SPI) and delay causes across active sites, linking daily logs, weather data and subcontractor submittals; helped project managers flag at-risk milestones 2–3 weeks earlier.</li>
+        <li><strong>Equipment utilization:</strong> Cleaned and modeled telematics data from heavy equipment to measure idle time and utilization rates, supporting a rent-vs-own decision that cut annual equipment rental spend.</li>
+        <li><strong>Change order and RFI trends:</strong> Automated the extraction and categorization of change orders and RFIs from project management software, revealing recurring design-coordination issues by discipline and reducing average RFI response time by 18%.</li>
+      </ul>
+    </article>
+
+  </div>
+</div></section>
+<!-- ===================== END OF WORK EXPERIENCE ===================== -->
 
 <section id="projects"><div class="wrap">
   <h2>Projects</h2>
