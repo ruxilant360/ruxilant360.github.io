@@ -25,6 +25,34 @@
   .job ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
   .job li { font-size: .95rem; color: var(--ink-2); }
   .job li strong { color: var(--ink); }
+  .contact { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 32px;
+             background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; }
+  .contact h2 { margin: 0 0 4px; color: var(--ink); font-size: 1.35rem; }
+  .contact-lede { margin: 0; color: var(--ink-2); font-size: .98rem; max-width: 460px; }
+  .contact-links { display: flex; flex-wrap: wrap; gap: 10px; min-width: 0; }
+  .contact-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; min-width: 0;
+                 border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font-weight: 600; font-size: .95rem;
+                 text-decoration: none; transition: border-color .15s, transform .15s; }
+  .contact-btn span { overflow-wrap: anywhere; }
+  .contact-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .contact-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { .contact-btn.primary { color: #0d1520; } }
+  .contact-btn svg { width: 18px; height: 18px; flex: none; }
+  .hero { padding: 32px 0 12px; }
+  .hero-panel { position: relative; overflow: hidden; padding: 40px 36px; border: 1px solid var(--line); border-radius: 16px;
+                background: radial-gradient(120% 140% at 100% 0%, var(--accent-soft) 0%, transparent 55%), var(--surface); box-shadow: var(--shadow); }
+  .hero h1 { font-size: clamp(1.75rem, 4.2vw, 2.85rem); line-height: 1.15; letter-spacing: -.02em; margin: 0 0 14px; max-width: 880px; text-wrap: balance; }
+  .hero h1 .hl { color: var(--accent); }
+  .hero .lede { margin: 0; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-size: .82rem; font-weight: 600; color: var(--good);
+            background: var(--good-soft); border-radius: 999px; padding: 5px 12px; margin-bottom: 16px; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent); }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+  .hero-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; padding-top: 18px; border-top: 1px dashed var(--line); }
+  .hero-tools span { font-size: .8rem; font-weight: 600; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line);
+                     border-radius: 999px; padding: 3px 11px; }
+  @media (max-width: 600px) { .hero-panel { padding: 26px 20px; } }
+  .footnote { margin-top: 18px; font-size: .82rem; color: var(--ink-2); text-align: center; }
 </style>
 </head>
 <body>
@@ -35,10 +63,30 @@
 </div></nav>
 
 <header class="hero"><div class="wrap">
-  <div class="eyebrow">Data analyst | Machine Learning | Agentic AI </div>
-  <h1>Building scalable data and end-to-end machine Learning pipelines and Agentic AI worflows </h1>
-  <p class="lede">I turn raw operational data into clear monthly reporting with SQL, Excel and Power BI, and I check it before anyone else sees it. Each project below is an interactive report you can explore in your browser.</p>
+  <div class="hero-panel">
+    <span class="status"><span class="dot" aria-hidden="true"></span> </span>
+    <div class="eyebrow">Data Analyst · Machine Learning · Agentic AI</div>
+    <h1>Building scalable data pipelines, <span class="hl">end-to-end machine learning</span> and agentic AI workflows.</h1>
+    <p class="lede">I turn raw operational data into clear monthly reporting with SQL, Excel and Power BI, and I check it before anyone else sees it. Each project below is an interactive report you can explore in your browser.</p>
+    <div class="hero-cta">
+      <a class="contact-btn primary" href="#projects">View projects</a>
+      <a class="contact-btn" href="#contact">Get in touch</a>
+    </div>
+    <div class="hero-tools" aria-label="Tools">
+      <span>SQL</span><span>Excel</span><span>Power BI</span><span>Python</span><span>XGBoost</span><span>Streamlit</span><span>LLMs</span>
+    </div>
+  </div>
 </div></header>
+
+<section id="skills"><div class="wrap">
+  <h2>What I work with</h2>
+  <div class="skills">
+    <div class="card"><h3>SQL</h3><p>PostgreSQL: CTEs, window functions, joins and validation queries.</p></div>
+    <div class="card"><h3>Excel</h3><p>Tables, SUMIFS, XLOOKUP, PivotTables, Power Query and dynamic arrays.</p></div>
+    <div class="card"><h3>Power BI</h3><p>Star-schema models, date tables and DAX measures for variance and YoY.</p></div>
+    <div class="card"><h3>Python</h3><p>pandas for data preparation, checks and automation.</p></div>
+  </div>
+</div></section>
 
 <!-- =====================================================================
      WORK EXPERIENCE: edit here.
@@ -117,21 +165,26 @@
   </div>
 </div></section>
 
-<section id="skills"><div class="wrap">
-  <h2>What I work with</h2>
-  <div class="skills">
-    <div class="card"><h3>SQL</h3><p>PostgreSQL: CTEs, window functions, joins and validation queries.</p></div>
-    <div class="card"><h3>Excel</h3><p>Tables, SUMIFS, XLOOKUP, PivotTables, Power Query and dynamic arrays.</p></div>
-    <div class="card"><h3>Power BI</h3><p>Star-schema models, date tables and DAX measures for variance and YoY.</p></div>
-    <div class="card"><h3>Python</h3><p>pandas for data preparation, checks and automation.</p></div>
-  </div>
-</div></section>
 
 <footer class="footer" id="contact"><div class="wrap">
-  <!-- TODO: add your email and LinkedIn link -->
-  Contact: <a href="https://www.linkedin.com/in/morotobi">LinkedIn</a>
-  <p> Email : tobi.rev30@gmail.com </p>
-
+  <!-- CONTACT: edit the email address / LinkedIn link here -->
+  <div class="contact">
+    <div>
+      <h2>Get in touch</h2>
+      <p class="contact-lede">Open to data science, analyst roles.</p>
+    </div>
+    <div class="contact-links">
+      <a class="contact-btn primary" href="mailto:tobi.rev30@gmail.com">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>tobi.rev30@gmail.com</span>
+      </a>
+      <a class="contact-btn" href="https://www.linkedin.com/in/morotobi" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11H3zm7 0h3.8v1.5h.06c.53-1 1.83-2.06 3.77-2.06 4.03 0 4.77 2.65 4.77 6.1v5.46h-4v-4.84c0-1.16-.02-2.64-1.61-2.64-1.61 0-1.86 1.26-1.86 2.56v4.92H10z"/></svg>
+        <span>LinkedIn</span>
+      </a>
+    </div>
+  </div>
+  <div class="footnote">© 2026 Tobi · Data Analytics Portfolio</div>
 </div></footer>
 <script data-goatcounter="https://freezeram.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>

@@ -1,1 +1,7 @@
 penv/
+
+# Mode choice: raw data and big workbooks stay on my laptop
+mode_choice_analyics/*.csv
+mode_choice_analyics/*.xlsx
+
+*.csv

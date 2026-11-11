@@ -1,0 +1,4 @@
+# Raw CSVs: keep them out of the repo. Rebuild with scripts/build_mall_data.py.
+# data.json stays tracked: the report page needs it to draw the charts.
+data/
+*.csv
