@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NHTS Travel Behaviour Report</title>
+<meta name="description" content="How Americans choose to travel: mode share by distance, purpose, age, area and household vehicles from 817,981 NHTS 2017 trips, plus a data check that corrected four headline claims.">
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+  :root {
+    --s-pv: #2a78d6; --s-walk: #eb6834; --s-transit: #1baf7a; --s-bike: #eda100; --s-other: #a8a59b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --s-pv: #3987e5; --s-walk: #d95926; --s-transit: #199e70; --s-bike: #c98500; --s-other: #6b6e74; }
+  }
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  @media (max-width: 960px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { padding: 14px 16px; }
+  .kpi .label { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); font-weight: 600; }
+  .kpi .val { font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em; margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .kpi .sub { font-size: .84rem; color: var(--ink-2); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .86rem; color: var(--ink-2); margin: 16px 0 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+  .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 860px) { .charts { grid-template-columns: 1fr; } }
+  .charts .wide { grid-column: 1 / -1; }
+  .charts .card { min-width: 0; }
+  .charts .card h3 { margin-bottom: 2px; }
+  .charts .cap { font-size: .88rem; color: var(--ink-2); margin-bottom: 12px; min-height: 1.3em; }
+  .chartbox { position: relative; height: 280px; }
+  .chartbox.tall { height: 340px; }
+  details.tbl { margin-top: 10px; }
+  details.tbl summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: .85rem; }
+
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+  td.num, th.num { text-align: right; }
+  .strike { text-decoration: line-through; color: var(--ink-2); }
+  .chip { display: inline-block; font-size: .74rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .chip.bad { background: var(--bad-soft); color: var(--bad); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; }
+  .steps li { counter-increment: s; position: relative; padding-left: 40px; margin-bottom: 18px; }
+  .steps li::before {
+    content: counter(s); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent); font-weight: 700; display: grid; place-items: center; font-size: .85rem;
+  }
+  .grid > * { min-width: 0; }
+  pre { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<nav class="topnav"><div class="wrap">
+  <a href="../">← Portfolio</a>
+  <div class="links"><a href="#dashboard">Dashboard</a><a href="#check">Data check</a><a href="#method">How I built it</a></div>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">Transportation · Survey analytics</div>
+  <h1>How People Travel: NHTS Travel Behaviour Report</h1>
+  <p class="lede">Which mode Americans choose for a trip, and how that changes with distance, purpose, age, area and how many cars the household owns.</p>
+  <span class="note" id="note">U.S. National Household Travel Survey 2017</span>
+  <div class="tags"><span class="tag">Python</span><span class="tag">pandas</span><span class="tag">Survey weights</span><span class="tag">Data validation</span><span class="tag">Chart.js</span></div>
+</div></header>
+
+<section id="dashboard" style="padding-top:0"><div class="wrap">
+  <div class="kpis" id="kpis"></div>
+  <div class="legend" id="legend" aria-label="Colour key"></div>
+
+  <div class="charts" style="margin-top:12px">
+    <div class="card">
+      <h3>Share of trips by mode</h3>
+      <div class="cap" id="capModes"></div>
+      <div class="chartbox tall"><canvas id="cModes" role="img" aria-label="Share of trips by mode"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Mode mix by trip distance</h3>
+      <div class="cap" id="capDist"></div>
+      <div class="chartbox tall"><canvas id="cDist" role="img" aria-label="Mode mix by trip distance"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>How far private-vehicle trips go</h3>
+      <div class="cap" id="capPvDist"></div>
+      <div class="chartbox"><canvas id="cPvDist" role="img" aria-label="Private-vehicle trips by distance"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Walking and transit by household vehicles</h3>
+      <div class="cap" id="capVeh"></div>
+      <div class="chartbox"><canvas id="cVeh" role="img" aria-label="Walk and transit share by number of household vehicles"></canvas></div>
+    </div>
+
+    <div class="card wide">
+      <h3>Mode mix by trip purpose</h3>
+      <div class="cap" id="capPurp"></div>
+      <div class="chartbox tall"><canvas id="cPurp" role="img" aria-label="Mode mix by trip purpose"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Private-vehicle share by age</h3>
+      <div class="cap" id="capAge"></div>
+      <div class="chartbox"><canvas id="cAge" role="img" aria-label="Private-vehicle share by age group"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Urban vs rural</h3>
+      <div class="cap" id="capArea"></div>
+      <div class="chartbox"><canvas id="cArea" role="img" aria-label="Mode mix in urban and rural areas"></canvas></div>
+    </div>
+  </div>
+</div></section>
+
+<section id="check"><div class="wrap">
+  <h2>Checking the numbers before publishing</h2>
+  <p class="muted" style="max-width:760px">My first draft said private vehicles carry 96% of trips. The raw file is NHTS 2017, but the mode names in my cleaned file came from the 2022 codebook, and the two surveys number modes differently. Joining back to the raw trip file fixed the labels and brought in the survey weights.</p>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card">
+      <h3>Four draft claims, re-checked</h3>
+      <div class="tablewrap"><table id="claims"></table></div>
+      <p class="muted small" style="margin:10px 0 0">"After the fix" is weighted with the NHTS trip weight, as official figures are.</p>
+    </div>
+    <div class="card">
+      <h3>What the labels really meant</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Label in my cleaned file</th><th>Real mode (2017 code)</th></tr></thead>
+        <tbody>
+          <tr><td><code>car</code></td><td>Walk (1). Median trip 0.37 mi in 10 min, about 2 mph</td></tr>
+          <tr><td><code>suv</code></td><td>Car (3)</td></tr>
+          <tr><td><code>pickup-truck</code></td><td>SUV, van and pickup (4–6)</td></tr>
+          <tr><td><code>other_mode</code></td><td>Bike, bus, rail, taxi, plane, boat and the rest</td></tr>
+        </tbody>
+      </table></div>
+      <p class="muted small" style="margin:10px 0 0">Trip purpose had the same problem, so the purpose chart uses the survey's own summary purpose (WHYTRP1S).</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="method"><div class="wrap">
+  <h2>How I built it</h2>
+  <div class="grid g2">
+    <div class="card">
+      <ol class="steps">
+        <li><strong>Clean and merge.</strong> Joined the NHTS 2017 trip, person, household and vehicle tables and kept respondents aged 16+ with valid answers: 817,981 trips.</li>
+        <li><strong>Validate.</strong> Mode labels looked wrong (a "car" trip with a 2 mph median). Joined back to the raw trip file on household, person, minutes, miles and trip order; all 817,981 rows matched.</li>
+        <li><strong>Weight.</strong> Every share uses the trip weight <code>WTTRDFIN</code>, so each survey trip counts for the U.S. trips it represents.</li>
+        <li><strong>Group modes.</strong> Private vehicle = car, SUV, van, pickup. Transit = public bus, paratransit, city-to-city bus, commuter rail, subway/light rail.</li>
+        <li><strong>Publish.</strong> <code>build_report_data.py</code> writes the aggregates to <code>data.js</code>; this page draws them with Chart.js.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <p class="muted small" style="margin:10px 0 0">Raw data: <a href="https://nhts.ornl.gov/" target="_blank" rel="noopener">NHTS 2017, Federal Highway Administration</a>. Script: <a href="build_report_data.py">build_report_data.py</a>.</p>
+    </div>
+  </div>
+</div></section>
+
+<footer class="footer"><div class="wrap">
+  Part of <a href="../">Tobi's data analytics portfolio</a>.
+</div></footer>
+
+<script src="data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+  const D = window.MODE_DATA;
+  if (!D || !window.Chart) { document.getElementById("kpis").textContent = "Data failed to load."; return; }
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const GROUPS = ["Private vehicle", "Walk", "Transit", "Bicycle", "Other"];
+  const COL = { "Private vehicle": css("--s-pv"), "Walk": css("--s-walk"), "Transit": css("--s-transit"), "Bicycle": css("--s-bike"), "Other": css("--s-other") };
+  const SURF = css("--surface"), INK2 = css("--ink-2"), LINE = css("--line");
+  const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
+  const fmt = n => n.toLocaleString("en-US");
+  const k = D.kpi;
+
+  Chart.defaults.color = INK2;
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.borderColor = LINE;
+  Chart.defaults.plugins.legend.labels.boxWidth = 12;
+  Chart.defaults.plugins.legend.labels.boxHeight = 12;
+  Chart.defaults.plugins.tooltip.padding = 10;
+
+  document.getElementById("note").textContent =
+    `NHTS 2017 · ${fmt(D.trips)} trips by ${fmt(D.persons)} people in ${fmt(D.households)} households · weighted to ${Math.round(D.weighted_trips_bn)} billion U.S. trips a year`;
+
+  // KPIs
+  const tiles = [
+    ["Private vehicle", pct(k.private_vehicle), "of trips: car, SUV, van, pickup"],
+    ["Walk", pct(k.walk), "of trips"],
+    ["Transit", pct(k.transit), "of trips: bus, rail, subway"],
+    ["Short car trips", pct(k.pv_under2), "of private-vehicle trips are under 2 mi"],
+    ["Zero-car households", (k.transit_zero_veh / k.transit_with_veh).toFixed(0) + "×", `transit share: ${pct(k.transit_zero_veh, 0)} vs ${pct(k.transit_with_veh)}`],
+  ];
+  document.getElementById("kpis").innerHTML = tiles.map(([l, v, s]) =>
+    `<div class="card kpi"><div class="label">${l}</div><div class="val">${v}</div><div class="sub">${s}</div></div>`).join("");
+  document.getElementById("legend").innerHTML = GROUPS.map(g => `<span><i style="background:${COL[g]}"></i>${g}</span>`).join("");
+
+  // a data table under each chart (accessibility + exact numbers)
+  function table(canvasId, head, rows) {
+    const card = document.getElementById(canvasId).closest(".card");
+    const d = document.createElement("details"); d.className = "tbl";
+    d.innerHTML = `<summary>Show data</summary><div class="tablewrap"><table><thead><tr>${head.map((h, i) => `<th class="${i ? "num" : ""}">${h}</th>`).join("")}</tr></thead><tbody>${
+      rows.map(r => `<tr>${r.map((c, i) => `<td class="${i ? "num" : ""}">${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    card.appendChild(d);
+  }
+  const pctAxis = (max = 100) => ({ min: 0, max, grid: { color: LINE }, ticks: { callback: v => v + "%" } });
+  const tip = { callbacks: { label: c => ` ${c.dataset.label ? c.dataset.label + ": " : ""}${c.parsed[c.chart.options.indexAxis === "y" ? "x" : "y"].toFixed(1)}%` } };
+
+  function stackedMix(id, rows, opts = {}) {
+    new Chart(document.getElementById(id), {
+      type: "bar",
+      data: {
+        labels: rows.map(r => r.label),
+        datasets: GROUPS.map(g => ({ label: g, data: rows.map(r => r[g] * 100), backgroundColor: COL[g],
+          borderColor: SURF, borderWidth: { left: 0, right: 2, top: 0, bottom: 0 }, borderSkipped: false, barPercentage: .78 }))
+      },
+      options: {
+        indexAxis: "y", maintainAspectRatio: false, animation: false,
+        scales: { x: { ...pctAxis(), stacked: true }, y: { stacked: true, grid: { display: false } } },
+        plugins: { legend: { position: "top", align: "start" }, tooltip: tip }
+      }
+    });
+    table(id, [opts.first || "", ...GROUPS], rows.map(r => [r.label, ...GROUPS.map(g => pct(r[g]))]));
+  }
+
+  // 1. modes
+  const top = D.modes.slice(0, 9);
+  const rest = D.modes.slice(9).reduce((a, m) => a + m.share, 0);
+  const modeRows = [...top.map(m => ({ label: m.mode, grp: m.grp, share: m.share })), { label: "All other modes", grp: "Other", share: rest }];
+  new Chart(document.getElementById("cModes"), {
+    type: "bar",
+    data: { labels: modeRows.map(r => r.label), datasets: [{ data: modeRows.map(r => r.share * 100),
+      backgroundColor: modeRows.map(r => COL[r.grp]), borderRadius: 4, borderSkipped: "start", barPercentage: .78 }] },
+    options: { indexAxis: "y", maintainAspectRatio: false, animation: false,
+      scales: { x: pctAxis(50), y: { grid: { display: false } } },
+      plugins: { legend: { display: false }, tooltip: tip } }
+  });
+  table("cModes", ["Mode", "Group", "Share of trips"], modeRows.map(r => [r.label, r.grp, pct(r.share)]));
+  const car = D.modes.find(m => m.mode === "Car"), suv = D.modes.find(m => m.mode === "SUV");
+  document.getElementById("capModes").textContent = `Cars carry ${pct(car.share, 0)} of trips and SUVs ${pct(suv.share, 0)}; walking is third at ${pct(k.walk)}.`;
+
+  // 2. distance mix
+  stackedMix("cDist", D.by_dist, { first: "Distance" });
+  const u1 = D.by_dist[0];
+  document.getElementById("capDist").textContent = `Under 1 mile, ${pct(u1.Walk, 0)} of trips are walked, yet ${pct(u1["Private vehicle"], 0)} still go by car. From 2 to 25 miles, over 90% drive.`;
+
+  // 3. private-vehicle distance
+  new Chart(document.getElementById("cPvDist"), {
+    type: "bar",
+    data: { labels: D.pv_dist.map(d => d.label), datasets: [{ data: D.pv_dist.map(d => d.share * 100), backgroundColor: COL["Private vehicle"], borderRadius: 4, borderSkipped: "start", barPercentage: .78 }] },
+    options: { maintainAspectRatio: false, animation: false, scales: { y: pctAxis(35), x: { grid: { display: false } } },
+      plugins: { legend: { display: false }, tooltip: tip } }
+  });
+  table("cPvDist", ["Distance", "Share of private-vehicle trips"], D.pv_dist.map(d => [d.label, pct(d.share)]));
+  document.getElementById("capPvDist").textContent = `${pct(k.pv_under2)} of car, SUV, van and pickup trips are under 2 miles; ${pct(k.pv_under1)} are under 1 mile.`;
+
+  // 4. household vehicles
+  const vg = ["Walk", "Transit"];
+  new Chart(document.getElementById("cVeh"), {
+    type: "bar",
+    data: { labels: D.by_veh.map(d => d.label === "1" ? "1 vehicle" : d.label + " vehicles"),
+      datasets: vg.map(g => ({ label: g, data: D.by_veh.map(d => d[g] * 100), backgroundColor: COL[g], borderRadius: 4, borderSkipped: "start",
+        borderColor: SURF, borderWidth: 1, barPercentage: .8, categoryPercentage: .7 })) },
+    options: { maintainAspectRatio: false, animation: false, scales: { y: pctAxis(50), x: { grid: { display: false } } },
+      plugins: { legend: { position: "top", align: "start" }, tooltip: tip } }
+  });
+  table("cVeh", ["Household vehicles", ...GROUPS], D.by_veh.map(r => [r.label, ...GROUPS.map(g => pct(r[g]))]));
+  const z = D.by_veh[0];
+  document.getElementById("capVeh").textContent = `Households with no vehicle walk ${pct(z.Walk, 0)} and take transit for ${pct(z.Transit, 0)} of trips. They make ${pct(k.zero_veh_trip_share)} of all trips.`;
+
+  // 5. purpose
+  stackedMix("cPurp", D.by_purpose, { first: "Trip purpose" });
+  const soc = D.by_purpose.find(d => d.label.startsWith("Social")), drop = D.by_purpose.find(d => d.label.startsWith("Transport"));
+  document.getElementById("capPurp").textContent = `Social and recreational trips are the most walked (${pct(soc.Walk, 0)}); dropping someone off is the most car-bound (${pct(drop["Private vehicle"], 0)}).`;
+
+  // 6. age
+  new Chart(document.getElementById("cAge"), {
+    type: "bar",
+    data: { labels: D.by_age.map(d => d.label), datasets: [{ data: D.by_age.map(d => d["Private vehicle"] * 100), backgroundColor: COL["Private vehicle"], borderRadius: 4, borderSkipped: "start", barPercentage: .78 }] },
+    options: { maintainAspectRatio: false, animation: false, scales: { y: pctAxis(100), x: { grid: { display: false } } },
+      plugins: { legend: { display: false }, tooltip: tip } }
+  });
+  table("cAge", ["Age", ...GROUPS], D.by_age.map(r => [r.label, ...GROUPS.map(g => pct(r[g]))]));
+  const a0 = D.by_age[0], aN = D.by_age[D.by_age.length - 1];
+  document.getElementById("capAge").textContent = `Car reliance rises with age: ${pct(a0["Private vehicle"], 0)} of trips at ${a0.label} vs ${pct(aN["Private vehicle"], 0)} at ${aN.label}.`;
+
+  // 7. area
+  stackedMix("cArea", D.by_area, { first: "Area" });
+  const ur = D.by_area[0], ru = D.by_area[1];
+  document.getElementById("capArea").textContent = `Rural trips are ${pct(ru["Private vehicle"], 0)} private vehicle vs ${pct(ur["Private vehicle"], 0)} in urban areas; transit is ${pct(ur.Transit)} urban, ${pct(ru.Transit)} rural.`;
+
+  // claims table
+  const chip = v => `<span class="chip ${v === "Wrong" ? "bad" : "warn"}">${v}</span>`;
+  const val = (x, f) => f === "x" ? x.toFixed(1) + "×" : pct(x);
+  document.getElementById("claims").innerHTML =
+    `<thead><tr><th>Draft claim</th><th class="num">Old labels</th><th class="num">After the fix</th><th>Verdict</th></tr></thead><tbody>` +
+    D.claims.map(c => `<tr><td>${c.claim}<div class="muted small">${c.why}</div></td><td class="num"><span class="strike">${val(c.labelled, c.fmt)}</span></td><td class="num"><strong>${val(c.corrected, c.fmt)}</strong></td><td>${chip(c.verdict)}</td></tr>`).join("") +
+    `</tbody>`;
+})();
+</script>
+<script data-goatcounter="https://freezeram.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
